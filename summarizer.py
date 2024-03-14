@@ -2,14 +2,17 @@ import librosa
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 # The Audio object allows us to play back sound
 # directly in the web browser
 from IPython.display import Audio
 from matplotlib import patches
 from scipy.io import wavfile
 
-
+def euclidean_similarity(X):
+    Y = euclidean_distances(X)
+    return -Y
+    
 def moving_average(x, w):
     """Computes moving average of window size w on x."""
     return np.convolve(x, np.ones(w), 'valid') / w
@@ -61,7 +64,7 @@ class SongSummary():
             case 'norm-spectrogram':
                 freqs, times, sxx = signal.spectrogram(x=self.song, fs=22050, window='hamming', nperseg=win_size)
                 prefeatures = sxx.T
-                self.features =  prefeatures / np.std(prefeatures,axis=0)
+                self.features =  (prefeatures - np.mean(prefeatures, axis=0)) / np.std(prefeatures,axis=0)
             case _:
                 raise 'method must be one of [mfcc, spectrogram]'
         self.sim_matrix = similarity(self.features)
@@ -80,15 +83,19 @@ class SongSummary():
             #step = 10
         step = int(10/self.win_step_seconds)
         
-        ticks = [_+1 for _ in range(0,duration,step)] 
-        
+        ticks = np.array([_+1 for _ in range(0,duration,step)]) 
+        if len(ticks) > 15:
+            mask = np.arange(0,len(ticks),2)
+            ticks = ticks[np.arange(0,len(ticks),2)]
         labels = [0]
         labels.extend(list(int(self.window_to_second(_)) for _ in ticks[1:]))
+
+        
         return ticks, labels
     
-    def plot_matrix(self, highlight=False, triple=False, save_as=False):
+    def plot_matrix(self, highlight='red',cmap='Greys_r', triple=False, save_as=False):
         f, ax = plt.subplots()
-        img = ax.imshow(self.sim_matrix)
+        img = ax.imshow(self.sim_matrix, vmin=-1., vmax=1.,cmap=cmap, interpolation='none')
         ticks, labels = self._get_ticks_and_labels()
 
         ax.set_xlabel('time (s)')
@@ -96,13 +103,14 @@ class SongSummary():
         ax.set_yticks(ticks,labels)
         ax.set_xticks(ticks,labels)
         ax.set_aspect('equal', 'box')
-        plt.colorbar(img)
+        cbar = f.colorbar(img, ax=ax, extend='both')
+        #plt.colorbar(img)
         if highlight:
             if not triple:
                 ax = plt.gca()
                 # Create a Rectangle patch
                 h = self.sim_matrix.shape[0] * self.summary_size/(len(self.song)/self.win_size)
-                rect = patches.Rectangle((0, self.best-2), self.sim_matrix.shape[0],h+2, linewidth=1, edgecolor='r', facecolor='none')
+                rect = patches.Rectangle((0, self.best-2), self.sim_matrix.shape[0],h+2, linewidth=1, edgecolor=highlight, facecolor='none')
                 ax.add_patch(rect)
         if save_as==False:
             plt.show()
