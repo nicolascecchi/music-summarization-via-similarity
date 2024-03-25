@@ -57,7 +57,7 @@ class SongSummary():
                 mfcc_var = np.std(mfcc_features,axis=1)**2
                 args_mfcc_var = np.argsort(mfcc_var)
                 mfcc_selected = mfcc_features[args_mfcc_var[-15::1],:].T
-                self.features = mfcc_selected / np.std(mfcc_selected,axis=0)
+                self.features = (mfcc_selected - np.mean(mfcc_selected,axis=0)) / np.std(mfcc_selected,axis=0)
             case 'spectrogram':
                 freqs, times, sxx = signal.spectrogram(x=self.song, fs=22050, window='hamming', nperseg=win_size)
                 self.features = sxx.T
